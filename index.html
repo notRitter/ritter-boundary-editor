@@ -205,31 +205,57 @@
         </section>
 
         <section class="section" id="tab-handler" hidden>
-          <div class="card">
-            <div class="card__title">Auto Handler</div>
-            <div class="card__desc">Optional. If disabled, you can manage boundaries manually in-game.</div>
+  <div class="card">
+    <div class="card__title">Auto Handler</div>
+    <div class="card__desc">
+      Optional. If disabled, you can manage boundaries manually in-game.
+    </div>
 
-            <label class="toggle">
-              <input type="checkbox" id="ahEnabled" />
-              <span class="toggle__track"></span>
-              <span class="toggle__text">Enable Auto Handler</span>
-            </label>
+    <label class="toggle">
+      <input type="checkbox" id="ahEnabled" />
+      <span class="toggle__track"></span>
+      <span class="toggle__text">Enable Auto Handler</span>
+    </label>
 
-            <div class="grid2" style="margin-top:12px;">
-              <div class="field">
-                <label class="label">Spawn Map ID</label>
-                <input class="input" id="ahSpawnMap" type="number" min="1" step="1" />
-                <div class="help">Template map for spawn events. Unspawn boundaries still need a value.</div>
-              </div>
+    <!-- Spawn boundaries: spawn map IDs list -->
+    <div class="grid2" style="margin-top:12px;" id="ahSpawnFields">
+      <div class="field">
+        <label class="label">Spawn Map ID(s)</label>
+        <input class="input" id="ahSpawnMaps" placeholder="e.g. 26,30,45" />
+        <div class="help">
+          Spawn boundaries can pull template events from multiple spawn maps.
+          (Comma-separated list)
+        </div>
+      </div>
 
-              <div class="field" id="ahBoundaryListField">
-                <label class="label">Target Spawn Boundaries (Unspawn only)</label>
-                <input class="input" id="ahBoundaries" placeholder="e.g. Static Spawn, Mover Spawn" />
-                <div class="help">Names of spawn boundaries this unspawn boundary may recycle events from.</div>
-              </div>
-            </div>
-          </div>
-        </section>
+      <div class="field">
+        <label class="label">Notes</label>
+        <div class="help">
+          Spawn boundaries: auto handler will stream events based on your boundary rules and templates.
+        </div>
+      </div>
+    </div>
+
+    <!-- Unspawn boundaries: target spawn boundary list -->
+    <div class="grid2" style="margin-top:12px;" id="ahUnspawnFields">
+      <div class="field">
+        <label class="label">Target Spawn Boundaries (Unspawn only)</label>
+        <div class="checklist" id="ahBoundariesChecklist"></div>
+        <div class="help">
+          Select which spawn boundaries this boundary is allowed to unspawn events from.
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">Notes</label>
+        <div class="help">
+          Unspawn boundaries do not require Spawn Map IDs. The engine assigns what it needs internally.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 
         <section class="section" id="tab-preloads" hidden>
           <div class="card">
