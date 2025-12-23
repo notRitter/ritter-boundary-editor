@@ -422,41 +422,28 @@
     renderPreloadList(b);
   }
 
-  function renderPreloadMapFilterOptions(b) {
-    if (!el.preloadMapFilter) return;
-  
-    const current = el.preloadMapFilter.value || "";
-  
-    // Collect unique mapIds from preloads
-    const set = new Set();
-    (b.preloads || []).forEach(p => {
-      const mid = Number(p.mapId);
-      if (Number.isFinite(mid)) set.add(mid);
-    });
-    const mapIds = Array.from(set).sort((a, c) => a - c);
-  
-    // Rebuild dropdown
-    el.preloadMapFilter.innerHTML =
-      `<option value="">All maps</option>` +
-      mapIds.map(mid => `<option value="${mid}">${mid}</option>`).join("");
-  
-    // Restore selection if still valid
-    const stillExists = mapIds.includes(Number(current));
-    el.preloadMapFilter.value = stillExists ? current : "";
-  }
-
-  
   function renderPreloadList(b) {
+    if (!el.preloadList) return;
     el.preloadList.innerHTML = "";
-    if (b.kind !== "spawn") return;
+    if (!b || b.kind !== "spawn") return;
   
-    // Ensure tags exist
+    // Ensure ui exists
+    b.ui = b.ui || { openPreload: null };
+  
+    // Normalize preloads
     (b.preloads || []).forEach(p => {
+      if (!p || typeof p !== "object") return;
       if (typeof p.tag !== "string") p.tag = "";
-      if (p.mode === "region" && !Array.isArray(p.regions)) p.regions = [];
+      if (p.mode !== "xy" && p.mode !== "region") p.mode = "xy";
+      if (!Number.isFinite(Number(p.mapId))) p.mapId = 1;
+      if (!Number.isFinite(Number(p.spawnMap))) p.spawnMap = 1;
+      if (!Number.isFinite(Number(p.spawnEventId))) p.spawnEventId = 1;
       if (p.mode === "xy") {
         if (!Number.isFinite(Number(p.x))) p.x = 0;
         if (!Number.isFinite(Number(p.y))) p.y = 0;
+      } else {
+        if (!Array.isArray(p.regions)) p.regions = [];
+        if (!Number.isFinite(Number(p.quantity)) || Number(p.quantity) < 1) p.quantity = 1;
       }
     });
   
@@ -509,22 +496,28 @@
       const card = document.createElement("div");
       card.className = "card";
   
-      const title =
-        p.mode === "xy"
-          ? `XY Preload • #${idx + 1}`
-          : `Region Preload • #${idx + 1}`;
+      const title = p.mode === "xy"
+        ? `XY Preload • #${idx + 1}`
+        : `Region Preload • #${idx + 1}`;
   
-      const isOpen = (b.ui?.openPreload === idx);
-
+      const isOpen = (b.ui.openPreload === idx);
+  
+      const meta = [
+        `Map ${p.mapId ?? ""}`,
+        `SpawnMap ${p.spawnMap ?? ""}`,
+        `Event ${p.spawnEventId ?? ""}`,
+        p.mode === "xy"
+          ? `(${p.x ?? 0},${p.y ?? 0})`
+          : `Regions: ${(p.regions || []).join(",")} • Qty: ${p.quantity ?? 1}`,
+        p.tag ? `Tag: ${p.tag}` : ""
+      ].filter(Boolean).join(" • ");
+  
+      // IMPORTANT: innerHTML is only HTML here.
       card.innerHTML = `
         <div class="preloadHeader" data-toggle>
           <div class="preloadHeader__left">
             <div class="preloadHeader__title">${escapeHtml(title)}</div>
-            <div class="preloadHeader__meta">
-              Map ${escapeHtml(p.mapId ?? "")} • SpawnMap ${escapeHtml(p.spawnMap ?? "")} • Event ${escapeHtml(p.spawnEventId ?? "")}
-              ${p.mode === "xy" ? ` • (${p.x ?? 0},${p.y ?? 0})` : ` • Regions: ${(p.regions||[]).join(",")} • Qty: ${p.quantity ?? 1}`}
-              ${p.tag ? ` • Tag: ${escapeHtml(p.tag)}` : ``}
-            </div>
+            <div class="preloadHeader__meta">${escapeHtml(meta)}</div>
           </div>
           <div class="preloadHeader__right">
             <button class="btn btn--ghost btn--sm" type="button" data-toggleBtn>
@@ -532,76 +525,73 @@
             </button>
           </div>
         </div>
-      
+  
         <div class="preloadBody" style="display:${isOpen ? "block" : "none"};">
           <div class="card__desc">Edit fields below. These export into JSON as preload objects.</div>
-      
-          const bodyHost = card.querySelector(".preloadBody");
-          const gridHost = bodyHost.querySelector(".grid2");
-          
-          gridHost.innerHTML = `
-            <div class="field">
-              <label class="label">Tag (optional)</label>
-              <input class="input" data-k="tag" value="${escapeHtml(p.tag || "")}" placeholder="e.g. dungeon1" />
-              <div class="help">Used for filtering + organization.</div>
-            </div>
-          
-            <div class="field">
-              <label class="label">Game Map ID</label>
-              <input class="input" data-k="mapId" type="number" min="1" step="1" value="${Number(p.mapId || 1)}" />
-              <div class="help">Where the saved boundary event exists.</div>
-            </div>
-          
-            <div class="field">
-              <label class="label">Spawn Map ID</label>
-              <input class="input" data-k="spawnMap" type="number" min="1" step="1" value="${Number(p.spawnMap || 1)}" />
-              <div class="help">Template map holding the event.</div>
-            </div>
-          
-            <div class="field">
-              <label class="label">Spawn Event ID</label>
-              <input class="input" data-k="spawnEventId" type="number" min="1" step="1" value="${Number(p.spawnEventId || 1)}" />
-              <div class="help">Template event id on spawn map.</div>
-            </div>
-          `;
-
-      
+  
+          <div class="grid2" style="margin-top:12px;" data-common></div>
+  
           <div class="divider"></div>
-      
-          <div class="grid2" id="preloadModeFields"></div>
-      
+  
+          <div class="grid2" data-mode></div>
+  
           <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
-            <button class="btn btn--ghost" data-up>↑ Up</button>
-            <button class="btn btn--ghost" data-down>↓ Down</button>
-            <button class="btn btn--ghost" data-dup>Duplicate</button>
-            <button class="btn btn--danger btn--ghost" data-del>Delete</button>
+            <button class="btn btn--ghost" type="button" data-up>↑ Up</button>
+            <button class="btn btn--ghost" type="button" data-down>↓ Down</button>
+            <button class="btn btn--ghost" type="button" data-dup>Duplicate</button>
+            <button class="btn btn--danger btn--ghost" type="button" data-del>Delete</button>
           </div>
         </div>
       `;
-
+  
       const toggle = () => {
-        if (!b.ui) b.ui = { openPreload: null };
-        b.ui.openPreload = (b.ui.openPreload === idx) ? null : idx;
+        b.ui = b.ui || { openPreload: null };
+        b.ui.openPreload = (b.ui.openPreload === idx) ? null : idx; // accordion
         renderAll();
       };
-      
+  
       card.querySelector("[data-toggleBtn]")?.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
         toggle();
       });
-      
+  
       card.querySelector("[data-toggle]")?.addEventListener("click", (ev) => {
         const isInteractive = ev.target.closest("button, input, select, textarea, a, label");
         if (isInteractive) return;
         toggle();
       });
-
-
   
-      // Render mode-specific fields
-      const modeHost = card.querySelector("#preloadModeFields");
+      // Fill common fields AFTER the HTML exists
+      const commonHost = card.querySelector("[data-common]");
+      commonHost.innerHTML = `
+        <div class="field">
+          <label class="label">Tag (optional)</label>
+          <input class="input" data-k="tag" value="${escapeHtml(p.tag || "")}" placeholder="e.g. dungeon1" />
+          <div class="help">Used for filtering + organization.</div>
+        </div>
   
+        <div class="field">
+          <label class="label">Game Map ID</label>
+          <input class="input" data-k="mapId" type="number" min="1" step="1" value="${Number(p.mapId || 1)}" />
+          <div class="help">Where the saved boundary event exists.</div>
+        </div>
+  
+        <div class="field">
+          <label class="label">Spawn Map ID</label>
+          <input class="input" data-k="spawnMap" type="number" min="1" step="1" value="${Number(p.spawnMap || 1)}" />
+          <div class="help">Template map holding the event.</div>
+        </div>
+  
+        <div class="field">
+          <label class="label">Spawn Event ID</label>
+          <input class="input" data-k="spawnEventId" type="number" min="1" step="1" value="${Number(p.spawnEventId || 1)}" />
+          <div class="help">Template event id on spawn map.</div>
+        </div>
+      `;
+  
+      // Mode-specific fields
+      const modeHost = card.querySelector("[data-mode]");
       if (p.mode === "xy") {
         modeHost.innerHTML = `
           <div class="field">
@@ -630,9 +620,9 @@
         `;
       }
   
-      // Wiring: field updates
+      // Wiring: update object fields
       card.querySelectorAll("input.input").forEach(inp => {
-        inp.oninput = () => {
+        inp.addEventListener("input", () => {
           const key = inp.dataset.k;
           if (!key) return;
   
@@ -646,84 +636,57 @@
             return;
           }
   
-          // numeric fields
           const n = Number(inp.value);
           if (Number.isFinite(n)) p[key] = n;
-        };
+        });
       });
   
-      // Buttons
+      // Buttons (maintain open index)
       card.querySelector("[data-del]").onclick = () => {
-        b.ui = b.ui || { openPreload: null };
-
-        const open = (typeof b.ui?.openPreload === "number") ? b.ui.openPreload : null;
-
+        const open = (typeof b.ui.openPreload === "number") ? b.ui.openPreload : null;
         b.preloads.splice(idx, 1);
-        
-        if (open === idx) b.ui.openPreload = null;           // deleted the open one
-        else if (open !== null && open > idx) b.ui.openPreload = open - 1; // shift down
-
+        if (open === idx) b.ui.openPreload = null;
+        else if (open !== null && open > idx) b.ui.openPreload = open - 1;
         renderAll();
         setStatus("Preload deleted.");
       };
   
       card.querySelector("[data-dup]").onclick = () => {
-        b.ui = b.ui || { openPreload: null };
         const copy = JSON.parse(JSON.stringify(p));
         b.preloads.splice(idx + 1, 0, copy);
-        
-        b.ui = b.ui || {};
-        b.ui.openPreload = idx + 1; // open the duplicate
-        
+        b.ui.openPreload = idx + 1;
         renderAll();
-
         setStatus("Preload duplicated.");
       };
   
       card.querySelector("[data-up]").onclick = () => {
         if (idx <= 0) return;
-        b.ui = b.ui || { openPreload: null };
-
-        const open = (typeof b.ui?.openPreload === "number") ? b.ui.openPreload : null;
-        
-        // swap preloads
+        const open = (typeof b.ui.openPreload === "number") ? b.ui.openPreload : null;
         const tmp = b.preloads[idx - 1];
         b.preloads[idx - 1] = b.preloads[idx];
         b.preloads[idx] = tmp;
-        
-        // keep open index “attached” to the same item that moved
         if (open === idx) b.ui.openPreload = idx - 1;
         else if (open === idx - 1) b.ui.openPreload = idx;
-        
         renderAll();
-
         setStatus("Preload moved up.");
       };
   
       card.querySelector("[data-down]").onclick = () => {
         if (idx >= b.preloads.length - 1) return;
-
-        b.ui = b.ui || { openPreload: null };
-
-        const open = (typeof b.ui?.openPreload === "number") ? b.ui.openPreload : null;
-        
-        // swap preloads
+        const open = (typeof b.ui.openPreload === "number") ? b.ui.openPreload : null;
         const tmp = b.preloads[idx + 1];
         b.preloads[idx + 1] = b.preloads[idx];
         b.preloads[idx] = tmp;
-        
-        // keep open index attached
         if (open === idx) b.ui.openPreload = idx + 1;
         else if (open === idx + 1) b.ui.openPreload = idx;
-        
         renderAll();
-
         setStatus("Preload moved down.");
       };
   
       el.preloadList.appendChild(card);
     });
   }
+
 
   function renderAll() {
     // If nothing selected but boundaries exist, auto-select first
@@ -892,14 +855,6 @@
       if (typeof b.enabled !== "boolean") b.enabled = true;
       if (!b.ui) b.ui = { openPreload: null };
       if (typeof b.ui.openPreload !== "number") b.ui.openPreload = null;
-
-      b.preloads.push(newPreloadObj);
-      b.ui = b.ui || {};
-      b.ui.openPreload = b.preloads.length - 1; // open the one we just added
-      activeTab = "preloads";
-      renderAll();
-
-      
       
       // Back-compat if older import has spawnMap instead of spawnMaps
       if (!Array.isArray(b.autoHandler.spawnMaps)) {
@@ -1068,10 +1023,7 @@
       });
 
       b.ui.openPreload = b.preloads.length - 1;
-      activeTab = "preloads";
-      renderAll();
-
-      
+    
       activeTab = "preloads";
       renderAll();
       setStatus("XY preload added.");
@@ -1093,8 +1045,6 @@
       });
 
       b.ui.openPreload = b.preloads.length - 1;
-      activeTab = "preloads";
-      renderAll();
       
       activeTab = "preloads";
       renderAll();
