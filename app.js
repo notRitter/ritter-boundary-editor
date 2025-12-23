@@ -60,6 +60,13 @@
     return state.boundaries.find(b => b.id === selectedId) || null;
   }
 
+  const parseStringList = (s) =>
+    String(s || "")
+      .split(",")
+      .map(x => x.trim())
+      .filter(Boolean);
+
+  
   // DOM
   const el = {
     newProjectBtn: byId("newProjectBtn"),
@@ -117,7 +124,9 @@
     addPreloadXYBtn: byId("addPreloadXYBtn"),
     addPreloadRegionBtn: byId("addPreloadRegionBtn"),
     preloadList: byId("preloadList"),
-    preloadFilter: byId("preloadFilter")
+    preloadFilter: byId("preloadFilter"),
+    preloadMapFilter: byId("preloadMapFilter"),
+    preloadTagFilter: byId("preloadTagFilter")
   };
 
   function setInvalid(inputEl, invalid, messageEl = null, message = "") {
@@ -308,6 +317,29 @@
       return;
     }
 
+    function renderPreloadMapFilterOptions(b) {
+      if (!el.preloadMapFilter) return;
+    
+      const current = el.preloadMapFilter.value || "";
+    
+      // Collect unique mapIds from preloads
+      const set = new Set();
+      (b.preloads || []).forEach(p => {
+        const mid = Number(p.mapId);
+        if (Number.isFinite(mid)) set.add(mid);
+      });
+      const mapIds = Array.from(set).sort((a, c) => a - c);
+    
+      // Rebuild options
+      el.preloadMapFilter.innerHTML = `<option value="">All maps</option>` +
+        mapIds.map(mid => `<option value="${mid}">${mid}</option>`).join("");
+    
+      // Restore selection if still present
+      const stillExists = mapIds.includes(Number(current));
+      el.preloadMapFilter.value = stillExists ? current : "";
+    }
+
+    
     const selected = new Set(b.autoHandler.boundaries || []);
 
     spawnBoundaries.forEach(sb => {
@@ -401,23 +433,24 @@
     el.preloadList.innerHTML = "";
     if (b.kind !== "spawn") return;
   
-    const filter = String(el.preloadFilter?.value || "").trim().toLowerCase();
+    // Ensure tags exist
+    (b.preloads || []).forEach(p => {
+      if (typeof p.tag !== "string") p.tag = "";
+      if (p.mode === "region" && !Array.isArray(p.regions)) p.regions = [];
+      if (p.mode === "xy") {
+        if (!Number.isFinite(Number(p.x))) p.x = 0;
+        if (!Number.isFinite(Number(p.y))) p.y = 0;
+      }
+    });
+  
+    // Filters
+    const textFilter = String(el.preloadFilter?.value || "").trim().toLowerCase();
+    const mapFilter = String(el.preloadMapFilter?.value || "").trim(); // "" = all
+    const tagFilter = String(el.preloadTagFilter?.value || "").trim().toLowerCase();
+  
+    renderPreloadMapFilterOptions(b);
   
     const preloads = Array.isArray(b.preloads) ? b.preloads : [];
-    const filtered = preloads
-      .map((p, idx) => ({ p, idx }))
-      .filter(({ p, idx }) => {
-        if (!filter) return true;
-        const hay = [
-          p.mode,
-          p.mapId, p.spawnMap, p.spawnEventId,
-          p.x, p.y,
-          Array.isArray(p.regions) ? p.regions.join(",") : "",
-          p.quantity,
-          idx
-        ].join(" ").toLowerCase();
-        return hay.includes(filter);
-      });
   
     if (preloads.length === 0) {
       const msg = document.createElement("div");
@@ -427,10 +460,30 @@
       return;
     }
   
+    const filtered = preloads
+      .map((p, idx) => ({ p, idx }))
+      .filter(({ p }) => {
+        if (mapFilter && String(p.mapId) !== mapFilter) return false;
+        if (tagFilter && !String(p.tag || "").toLowerCase().includes(tagFilter)) return false;
+  
+        if (!textFilter) return true;
+  
+        const hay = [
+          p.mode,
+          p.tag,
+          p.mapId, p.spawnMap, p.spawnEventId,
+          p.x, p.y,
+          Array.isArray(p.regions) ? p.regions.join(",") : "",
+          p.quantity
+        ].join(" ").toLowerCase();
+  
+        return hay.includes(textFilter);
+      });
+  
     if (filtered.length === 0) {
       const msg = document.createElement("div");
       msg.className = "help";
-      msg.textContent = "No preloads match your filter.";
+      msg.textContent = "No preloads match your filters.";
       el.preloadList.appendChild(msg);
       return;
     }
@@ -441,27 +494,119 @@
   
       const title =
         p.mode === "xy"
-          ? `XY: map ${p.mapId} @ (${p.x},${p.y})`
-          : `Region: map ${p.mapId} regions [${(p.regions || []).join(",")}] × ${p.quantity || 1}`;
+          ? `XY Preload • #${idx + 1}`
+          : `Region Preload • #${idx + 1}`;
   
       card.innerHTML = `
         <div class="card__title">${escapeHtml(title)}</div>
-        <div class="card__desc">spawnMap ${p.spawnMap} • eventId ${p.spawnEventId} • #${idx + 1}</div>
+        <div class="card__desc">Edit fields below. These export into JSON as preload objects.</div>
   
-        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn--ghost" data-up="${idx}">↑ Up</button>
-          <button class="btn btn--ghost" data-down="${idx}">↓ Down</button>
-          <button class="btn btn--danger btn--ghost" data-del="${idx}">Delete</button>
+        <div class="grid2" style="margin-top:12px;">
+          <div class="field">
+            <label class="label">Tag (optional)</label>
+            <input class="input" data-k="tag" value="${escapeHtml(p.tag || "")}" placeholder="e.g. dungeon1" />
+            <div class="help">Used for filtering + organization.</div>
+          </div>
+  
+          <div class="field">
+            <label class="label">Game Map ID</label>
+            <input class="input" data-k="mapId" type="number" min="1" step="1" value="${Number(p.mapId || 1)}" />
+            <div class="help">Where the saved boundary event exists.</div>
+          </div>
+  
+          <div class="field">
+            <label class="label">Spawn Map ID</label>
+            <input class="input" data-k="spawnMap" type="number" min="1" step="1" value="${Number(p.spawnMap || 1)}" />
+            <div class="help">Template map holding the event.</div>
+          </div>
+  
+          <div class="field">
+            <label class="label">Spawn Event ID</label>
+            <input class="input" data-k="spawnEventId" type="number" min="1" step="1" value="${Number(p.spawnEventId || 1)}" />
+            <div class="help">Template event id on spawn map.</div>
+          </div>
+        </div>
+  
+        <div class="divider"></div>
+  
+        <div class="grid2" id="preloadModeFields"></div>
+  
+        <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn--ghost" data-up>↑ Up</button>
+          <button class="btn btn--ghost" data-down>↓ Down</button>
+          <button class="btn btn--ghost" data-dup>Duplicate</button>
+          <button class="btn btn--danger btn--ghost" data-del>Delete</button>
         </div>
       `;
   
-      card.querySelector(`[data-del="${idx}"]`).onclick = () => {
+      // Render mode-specific fields
+      const modeHost = card.querySelector("#preloadModeFields");
+  
+      if (p.mode === "xy") {
+        modeHost.innerHTML = `
+          <div class="field">
+            <label class="label">X</label>
+            <input class="input" data-k="x" type="number" step="1" value="${Number(p.x || 0)}" />
+            <div class="help">Exact X coordinate.</div>
+          </div>
+          <div class="field">
+            <label class="label">Y</label>
+            <input class="input" data-k="y" type="number" step="1" value="${Number(p.y || 0)}" />
+            <div class="help">Exact Y coordinate.</div>
+          </div>
+        `;
+      } else {
+        modeHost.innerHTML = `
+          <div class="field">
+            <label class="label">Region IDs (comma separated)</label>
+            <input class="input" data-k="regions" value="${escapeHtml((p.regions || []).join(","))}" placeholder="e.g. 3,4,7" />
+            <div class="help">One or more regions to spawn on.</div>
+          </div>
+          <div class="field">
+            <label class="label">Quantity</label>
+            <input class="input" data-k="quantity" type="number" min="1" step="1" value="${Number(p.quantity || 1)}" />
+            <div class="help">How many to preload randomly across region tiles.</div>
+          </div>
+        `;
+      }
+  
+      // Wiring: field updates
+      card.querySelectorAll("input.input").forEach(inp => {
+        inp.oninput = () => {
+          const key = inp.dataset.k;
+          if (!key) return;
+  
+          if (key === "tag") {
+            p.tag = inp.value;
+            return;
+          }
+  
+          if (key === "regions") {
+            p.regions = parseNumberList(inp.value);
+            return;
+          }
+  
+          // numeric fields
+          const n = Number(inp.value);
+          if (Number.isFinite(n)) p[key] = n;
+        };
+      });
+  
+      // Buttons
+      card.querySelector("[data-del]").onclick = () => {
         b.preloads.splice(idx, 1);
         renderAll();
         setStatus("Preload deleted.");
       };
   
-      card.querySelector(`[data-up="${idx}"]`).onclick = () => {
+      card.querySelector("[data-dup]").onclick = () => {
+        const copy = JSON.parse(JSON.stringify(p));
+        b.preloads.splice(idx + 1, 0, copy);
+        renderAll();
+        setStatus("Preload duplicated.");
+      };
+  
+      card.querySelector("[data-up]").onclick = () => {
         if (idx <= 0) return;
         const tmp = b.preloads[idx - 1];
         b.preloads[idx - 1] = b.preloads[idx];
@@ -470,7 +615,7 @@
         setStatus("Preload moved up.");
       };
   
-      card.querySelector(`[data-down="${idx}"]`).onclick = () => {
+      card.querySelector("[data-down]").onclick = () => {
         if (idx >= b.preloads.length - 1) return;
         const tmp = b.preloads[idx + 1];
         b.preloads[idx + 1] = b.preloads[idx];
@@ -482,6 +627,7 @@
       el.preloadList.appendChild(card);
     });
   }
+
 
 
   function renderAll() {
@@ -673,11 +819,11 @@
     // topbar
     el.newProjectBtn.onclick = () => newProject();
     el.exportBtn.onclick = () => exportJson();
-    if (el.preloadFilter) {
-      el.preloadFilter.oninput = () => {
-        renderAll();
-      };
-    }
+        
+    if (el.preloadFilter) el.preloadFilter.oninput = () => renderAll();
+    if (el.preloadTagFilter) el.preloadTagFilter.oninput = () => renderAll();
+    if (el.preloadMapFilter) el.preloadMapFilter.onchange = () => renderAll();
+
 
     el.importFile.onchange = async (e) => {
       const file = e.target.files?.[0];
@@ -805,14 +951,28 @@
     el.addPreloadXYBtn.onclick = () => {
       const b = getSelectedBoundary();
       if (!b || b.kind !== "spawn") return;
-      b.preloads.push({
-        mode: "xy",
-        spawnMap: (b.autoHandler.spawnMaps?.[0] ?? 1),
-        spawnEventId: 1,
-        mapId: (b.maps?.[0] ?? state.global.streamingMaps?.[0] ?? 1),
-        x: 0,
-        y: 0
-      });
+      // XY preload add
+  b.preloads.push({
+    mode: "xy",
+    spawnMap: (b.autoHandler.spawnMaps?.[0] ?? 1),
+    spawnEventId: 1,
+    mapId: (b.maps?.[0] ?? state.global.streamingMaps?.[0] ?? 1),
+    x: 0,
+    y: 0,
+    tag: ""
+  });
+  
+  // Region preload add
+  b.preloads.push({
+    mode: "region",
+    spawnMap: (b.autoHandler.spawnMaps?.[0] ?? 1),
+    spawnEventId: 1,
+    mapId: (b.maps?.[0] ?? state.global.streamingMaps?.[0] ?? 1),
+    regions: [1],
+    quantity: 10,
+    tag: ""
+  });
+
       renderAll();
       setStatus("XY preload added.");
     };
