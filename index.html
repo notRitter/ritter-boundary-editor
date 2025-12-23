@@ -59,69 +59,44 @@
     <!-- RIGHT: Editor -->
     <main class="panel panel--right">
       <div class="panel__header panel__header--sticky">
-        <div class="panel__title" id="editorTitle">Select a boundary</div>
-        <div class="panel__subtitle" id="editorSubtitle">Choose one on the left to edit properties</div>
-
-        <div class="toolbar">
-          <button class="btn btn--danger btn--ghost" id="deleteBoundaryBtn" disabled>Delete</button>
-          <div class="spacer"></div>
-          <span class="pill" id="selectedKindPill">—</span>
-          <label class="toggle">
-            <input type="checkbox" id="selectedEnabledToggle" disabled />
-            <span class="toggle__track"></span>
-            <span class="toggle__text">Enabled</span>
-          </label>
-        </div>
-
-        <div class="panel__header panel__header--sticky">
-          <div class="panelHeaderTop">
-            <div class="panelHeaderTop__left">
-              <div class="panel__title" id="editorTitle">Select a boundary</div>
-              <div class="panel__subtitle" id="editorSubtitle">Choose one on the left to edit properties</div>
-        
-              <div class="toolbar">
-                <button class="btn btn--danger btn--ghost" id="deleteBoundaryBtn" disabled>Delete</button>
-                <div class="spacer"></div>
-                <span class="pill" id="selectedKindPill">—</span>
-                <label class="toggle">
-                  <input type="checkbox" id="selectedEnabledToggle" disabled />
-                  <span class="toggle__track"></span>
-                  <span class="toggle__text">Enabled</span>
-                </label>
-              </div>
-        
-              <nav class="tabs" id="editorTabs">
-                <button class="tab tab--active" data-tab="general" disabled>General</button>
-                <button class="tab" data-tab="size" disabled>Size</button>
-                <button class="tab" data-tab="handler" disabled>Auto Handler</button>
-                <button class="tab" data-tab="preloads" disabled>Preloads</button>
-              </nav>
+        <div class="panelHeaderTop">
+          <div class="panelHeaderTop__left">
+            <div class="panel__title" id="editorTitle">Select a boundary</div>
+            <div class="panel__subtitle" id="editorSubtitle">Choose one on the left to edit properties</div>
+      
+            <div class="toolbar">
+              <button class="btn btn--danger btn--ghost" id="deleteBoundaryBtn" disabled>Delete</button>
+              <div class="spacer"></div>
+              <span class="pill" id="selectedKindPill">—</span>
+              <label class="toggle">
+                <input type="checkbox" id="selectedEnabledToggle" disabled />
+                <span class="toggle__track"></span>
+                <span class="toggle__text">Enabled</span>
+              </label>
             </div>
-        
-            <!-- ✅ MOVE GLOBAL MAPS HERE -->
-            <div class="panelHeaderTop__right">
-              <div class="card card--compact" id="globalStreamingCard">
-                <div class="card__title">Global Streaming Maps</div>
-                <div class="card__desc">Required if you use Streaming.</div>
-                <div class="field">
-                  <label for="globalMaps" class="label">Map IDs</label>
-                  <input id="globalMaps" class="input" placeholder="e.g. 28,31,33" />
-                  <div class="help">Used when a boundary is set to “Streaming”.</div>
-                </div>
+      
+            <nav class="tabs" id="editorTabs">
+              <button class="tab tab--active" data-tab="general" disabled>General</button>
+              <button class="tab" data-tab="size" disabled>Size</button>
+              <button class="tab" data-tab="handler" disabled>Auto Handler</button>
+              <button class="tab" data-tab="preloads" disabled>Preloads</button>
+            </nav>
+          </div>
+      
+          <div class="panelHeaderTop__right">
+            <div class="card card--compact" id="globalStreamingCard">
+              <div class="card__title">Global Streaming Maps</div>
+              <div class="card__desc">Required if you use Streaming.</div>
+              <div class="field">
+                <label for="globalMaps" class="label">Map IDs</label>
+                <input id="globalMaps" class="input" placeholder="e.g. 28,31,33" />
+                <div class="help">Used when a boundary is set to “Streaming”.</div>
               </div>
             </div>
           </div>
         </div>
-
-        
-        <nav class="tabs" id="editorTabs">
-          <button class="tab tab--active" data-tab="general" disabled>General</button>
-          <button class="tab" data-tab="size" disabled>Size</button>
-          <button class="tab" data-tab="handler" disabled>Auto Handler</button>
-          <button class="tab" data-tab="preloads" disabled>Preloads</button>
-        </nav>
-       
       </div>
+
 
       <div class="panel__content">
         <!-- Empty State -->
