@@ -2,20 +2,275 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Ritter Boundary Builder</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<h1>Ritter Boundary Builder</h1>
+  <header class="topbar">
+    <div class="topbar__left">
+      <div class="brand">
+        <div class="brand__logo">R</div>
+        <div class="brand__text">
+          <div class="brand__title">Ritter Boundary Builder</div>
+          <div class="brand__subtitle">Boundaries + Preloads JSON Editor</div>
+        </div>
+      </div>
+    </div>
 
-<button id="addBoundary">Add Boundary</button>
-<button id="exportJson">Export JSON</button>
-<input type="file" id="importJson" />
+    <div class="topbar__right">
+      <button class="btn btn--ghost" id="newProjectBtn" title="Start a new project">New</button>
 
-<div id="boundaryList"></div>
+      <label class="btn btn--ghost filebtn" title="Import a JSON file">
+        Import
+        <input id="importFile" type="file" accept=".json,application/json" hidden />
+      </label>
 
-<script src="schema.js"></script>
-<script src="app.js"></script>
+      <button class="btn btn--primary" id="exportBtn" title="Download JSON">Export</button>
+    </div>
+  </header>
+
+  <div class="app">
+    <!-- LEFT: Boundary List -->
+    <aside class="panel panel--left">
+      <div class="panel__header">
+        <div class="panel__title">Boundaries</div>
+        <div class="panel__subtitle">Create, edit, and organize</div>
+      </div>
+
+      <div class="panel__content">
+        <div class="stack stack--tight">
+          <button class="btn btn--primary btn--full" id="addBoundaryBtn">+ Add Boundary</button>
+
+          <div class="row">
+            <button class="btn btn--ghost btn--full" id="addStreamingPresetBtn">+ Add Streaming Presets</button>
+          </div>
+
+          <div class="card">
+            <div class="card__title">Global Streaming Maps</div>
+            <div class="card__desc">Map IDs shared by streaming boundaries (optional)</div>
+            <div class="field">
+              <label for="globalMaps" class="label">Map IDs</label>
+              <input id="globalMaps" class="input" placeholder="e.g. 28,31,33" />
+              <div class="help">Used when a boundary is set to “Streaming”.</div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <ul class="list" id="boundaryList">
+            <!-- list items injected by JS -->
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT: Editor -->
+    <main class="panel panel--right">
+      <div class="panel__header panel__header--sticky">
+        <div class="panel__title" id="editorTitle">Select a boundary</div>
+        <div class="panel__subtitle" id="editorSubtitle">Choose one on the left to edit properties</div>
+
+        <div class="toolbar">
+          <button class="btn btn--danger btn--ghost" id="deleteBoundaryBtn" disabled>Delete</button>
+          <div class="spacer"></div>
+          <span class="pill" id="selectedKindPill">—</span>
+          <label class="toggle">
+            <input type="checkbox" id="selectedEnabledToggle" disabled />
+            <span class="toggle__track"></span>
+            <span class="toggle__text">Enabled</span>
+          </label>
+        </div>
+
+        <nav class="tabs" id="editorTabs">
+          <button class="tab tab--active" data-tab="general" disabled>General</button>
+          <button class="tab" data-tab="size" disabled>Size</button>
+          <button class="tab" data-tab="handler" disabled>Auto Handler</button>
+          <button class="tab" data-tab="preloads" disabled>Preloads</button>
+        </nav>
+      </div>
+
+      <div class="panel__content">
+        <!-- Empty State -->
+        <section class="empty" id="emptyState">
+          <div class="empty__box">
+            <div class="empty__title">No boundary selected</div>
+            <div class="empty__text">
+              Add a boundary or import a JSON file, then click a boundary in the left panel.
+            </div>
+            <div class="empty__actions">
+              <button class="btn btn--primary" id="emptyAddBoundaryBtn">+ Add Boundary</button>
+              <button class="btn btn--ghost" id="emptyAddPresetBtn">+ Add Streaming Presets</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Editor Sections (JS will show/hide) -->
+        <section class="section" id="tab-general" hidden>
+          <div class="grid2">
+            <div class="field">
+              <label class="label">Boundary Name</label>
+              <input class="input" id="bName" placeholder="e.g. Static Spawn" />
+              <div class="help">Names must be unique. Used as identifier everywhere.</div>
+            </div>
+
+            <div class="field">
+              <label class="label">Kind</label>
+              <select class="select" id="bKind">
+                <option value="spawn">Spawn</option>
+                <option value="unspawn">Unspawn</option>
+              </select>
+              <div class="help">Spawn boundaries create events. Unspawn boundaries recycle them.</div>
+            </div>
+
+            <div class="field">
+              <label class="label">Maps (comma separated)</label>
+              <input class="input" id="bMaps" placeholder="e.g. 28,31,33" />
+              <div class="help">Which maps this boundary can run on.</div>
+            </div>
+
+            <div class="field">
+              <label class="label">Thickness</label>
+              <input class="input" id="bThickness" type="number" min="1" step="1" />
+              <div class="help">Ring thickness around the boundary edge.</div>
+            </div>
+
+            <div class="field">
+              <label class="label">Update Mode</label>
+              <select class="select" id="bUpdateMode">
+                <option value="Movement">Movement</option>
+                <option value="WaitTime">WaitTime</option>
+              </select>
+              <div class="help">Movement is best for static events. WaitTime for moving events.</div>
+            </div>
+
+            <div class="field">
+              <label class="label">Wait (frames)</label>
+              <input class="input" id="bWait" type="number" min="0" step="1" />
+              <div class="help">Only used when Update Mode is WaitTime.</div>
+            </div>
+
+            <div class="field">
+              <label class="label">Spawn Boundary Type (Spawn only)</label>
+              <select class="select" id="bType">
+                <option value="SpawnOn">SpawnOn</option>
+                <option value="SpawnIn">SpawnIn</option>
+                <option value="FillOn">FillOn</option>
+                <option value="FillIn">FillIn</option>
+              </select>
+              <div class="help">Legacy spawn rule selection.</div>
+            </div>
+
+            <div class="field">
+              <label class="label">Max Events (Spawn only)</label>
+              <input class="input" id="bMaxEvents" type="number" min="0" step="1" />
+              <div class="help">Cap events allowed inside this boundary.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="tab-size" hidden>
+          <div class="card">
+            <div class="card__title">Boundary Size</div>
+            <div class="card__desc">Choose Streaming (distance from screen edge) or Fixed Size.</div>
+
+            <div class="row row--wrap">
+              <label class="radio">
+                <input type="radio" name="sizeMode" value="streaming" id="sizeStreaming" />
+                <span>Streaming</span>
+              </label>
+
+              <label class="radio">
+                <input type="radio" name="sizeMode" value="fixed" id="sizeFixed" />
+                <span>Fixed</span>
+              </label>
+            </div>
+
+            <div class="grid2" style="margin-top:12px;">
+              <div class="field" id="streamingDistanceField">
+                <label class="label">Distance from screen edge (tiles)</label>
+                <input class="input" id="bDistance" type="number" min="0" step="1" />
+                <div class="help">Converted to width/height at runtime: screen + (distance * 2).</div>
+              </div>
+
+              <div class="field" id="fixedSizeField" hidden>
+                <label class="label">Fixed Width (tiles)</label>
+                <input class="input" id="bWidth" type="number" min="1" step="1" />
+                <label class="label" style="margin-top:10px;">Fixed Height (tiles)</label>
+                <input class="input" id="bHeight" type="number" min="1" step="1" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="tab-handler" hidden>
+          <div class="card">
+            <div class="card__title">Auto Handler</div>
+            <div class="card__desc">Optional. If disabled, you can manage boundaries manually in-game.</div>
+
+            <label class="toggle">
+              <input type="checkbox" id="ahEnabled" />
+              <span class="toggle__track"></span>
+              <span class="toggle__text">Enable Auto Handler</span>
+            </label>
+
+            <div class="grid2" style="margin-top:12px;">
+              <div class="field">
+                <label class="label">Spawn Map ID</label>
+                <input class="input" id="ahSpawnMap" type="number" min="1" step="1" />
+                <div class="help">Template map for spawn events. Unspawn boundaries still need a value.</div>
+              </div>
+
+              <div class="field" id="ahBoundaryListField">
+                <label class="label">Target Spawn Boundaries (Unspawn only)</label>
+                <input class="input" id="ahBoundaries" placeholder="e.g. Static Spawn, Mover Spawn" />
+                <div class="help">Names of spawn boundaries this unspawn boundary may recycle events from.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="tab-preloads" hidden>
+          <div class="card">
+            <div class="card__title">Preloads (Spawn boundaries only)</div>
+            <div class="card__desc">Create saved boundary events ahead of time. Exported JSON will include these.</div>
+
+            <div class="row row--wrap">
+              <button class="btn btn--primary" id="addPreloadXYBtn">+ Add XY Preload</button>
+              <button class="btn btn--ghost" id="addPreloadRegionBtn">+ Add Region Preload</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="preloadList" id="preloadList">
+              <!-- preload cards injected by JS -->
+            </div>
+
+            <div class="help" style="margin-top:10px;">
+              XY preloads store exact positions. Region preloads can generate multiple events via Quantity.
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <div class="statusbar">
+    <span id="statusText">Ready.</span>
+    <span class="statusbar__right" id="statusMeta"></span>
+  </div>
+
+  <!-- Your JS will be added next -->
+  <script>
+    // Placeholder: we’ll wire behavior in the next step.
+    // This prevents the page from feeling “dead” immediately.
+    document.getElementById("emptyAddBoundaryBtn").onclick =
+      () => alert("Next step: wire Add Boundary behavior in JS.");
+    document.getElementById("emptyAddPresetBtn").onclick =
+      () => alert("Next step: wire presets in JS.");
+  </script>
+
 </body>
 </html>
