@@ -605,7 +605,13 @@
   
       // Buttons
       card.querySelector("[data-del]").onclick = () => {
+        const open = (typeof b.ui?.openPreload === "number") ? b.ui.openPreload : null;
+
         b.preloads.splice(idx, 1);
+        
+        if (open === idx) b.ui.openPreload = null;           // deleted the open one
+        else if (open !== null && open > idx) b.ui.openPreload = open - 1; // shift down
+
         renderAll();
         setStatus("Preload deleted.");
       };
@@ -613,25 +619,50 @@
       card.querySelector("[data-dup]").onclick = () => {
         const copy = JSON.parse(JSON.stringify(p));
         b.preloads.splice(idx + 1, 0, copy);
+        
+        b.ui = b.ui || {};
+        b.ui.openPreload = idx + 1; // open the duplicate
+        
         renderAll();
+
         setStatus("Preload duplicated.");
       };
   
       card.querySelector("[data-up]").onclick = () => {
         if (idx <= 0) return;
+
+        const open = (typeof b.ui?.openPreload === "number") ? b.ui.openPreload : null;
+        
+        // swap preloads
         const tmp = b.preloads[idx - 1];
         b.preloads[idx - 1] = b.preloads[idx];
         b.preloads[idx] = tmp;
+        
+        // keep open index “attached” to the same item that moved
+        if (open === idx) b.ui.openPreload = idx - 1;
+        else if (open === idx - 1) b.ui.openPreload = idx;
+        
         renderAll();
+
         setStatus("Preload moved up.");
       };
   
       card.querySelector("[data-down]").onclick = () => {
         if (idx >= b.preloads.length - 1) return;
+
+        const open = (typeof b.ui?.openPreload === "number") ? b.ui.openPreload : null;
+        
+        // swap preloads
         const tmp = b.preloads[idx + 1];
         b.preloads[idx + 1] = b.preloads[idx];
         b.preloads[idx] = tmp;
+        
+        // keep open index attached
+        if (open === idx) b.ui.openPreload = idx + 1;
+        else if (open === idx + 1) b.ui.openPreload = idx;
+        
         renderAll();
+
         setStatus("Preload moved down.");
       };
   
@@ -829,7 +860,14 @@
       if (!b.ui) b.ui = { openPreload: null };
       if (typeof b.ui.openPreload !== "number") b.ui.openPreload = null;
 
+      b.preloads.push(newPreloadObj);
+      b.ui = b.ui || {};
+      b.ui.openPreload = b.preloads.length - 1; // open the one we just added
+      activeTab = "preloads";
+      renderAll();
 
+      
+      
       // Back-compat if older import has spawnMap instead of spawnMaps
       if (!Array.isArray(b.autoHandler.spawnMaps)) {
         if (Number.isFinite(Number(b.autoHandler.spawnMap))) {
