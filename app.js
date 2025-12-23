@@ -1,26 +1,16 @@
 // app.js
 (() => {
-  // ----------------------------
-  // State
-  // ----------------------------
   const state = {
-    meta: {
-      version: 1,
-      tool: "Ritter Boundary Builder"
-    },
-    global: {
-      streamingMaps: []
-    },
+    meta: { version: 1, tool: "Ritter Boundary Builder" },
+    global: { streamingMaps: [] },
     boundaries: []
   };
 
   let selectedId = null;
   let activeTab = "general";
 
-  // ----------------------------
-  // Helpers
-  // ----------------------------
   const uid = () => "b_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const byId = (id) => document.getElementById(id);
 
   const parseNumberList = (s) =>
     String(s || "")
@@ -28,45 +18,41 @@
       .map(x => Number(x.trim()))
       .filter(n => Number.isFinite(n));
 
-  const parseStringList = (s) =>
-    String(s || "")
-      .split(",")
-      .map(x => x.trim())
-      .filter(Boolean);
-
-  const byId = (id) => document.getElementById(id);
-
   function setStatus(text, meta = "") {
-    const st = byId("statusText");
-    const sm = byId("statusMeta");
-    if (st) st.textContent = text;
-    if (sm) sm.textContent = meta;
+    byId("statusText").textContent = text;
+    byId("statusMeta").textContent = meta;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   function makeBoundaryBase(kind = "spawn") {
     return {
       id: uid(),
       name: kind === "spawn" ? "New Spawn Boundary" : "New Unspawn Boundary",
-      kind, // "spawn" | "unspawn"
+      kind,
       maps: [],
-      size: {
-        mode: "streaming", // "streaming" | "fixed"
-        distance: 2,
-        width: null,
-        height: null
-      },
+      size: { mode: "streaming", distance: 2, width: null, height: null },
       thickness: 1,
-      type: "FillOn",       // spawn only (legacy)
+      type: "FillOn",
       updateMode: "Movement",
       wait: 10,
-      maxEvents: 400,       // spawn only
+      maxEvents: 400,
       enabled: true,
       autoHandler: {
         enabled: true,
-        spawnMap: 1,
-        boundaries: []      // unspawn only
+        // spawn boundaries use spawnMaps array
+        spawnMaps: [1],
+        // unspawn boundaries use boundaries list
+        boundaries: []
       },
-      preloads: []          // spawn only
+      preloads: []
     };
   }
 
@@ -74,42 +60,28 @@
     return state.boundaries.find(b => b.id === selectedId) || null;
   }
 
-  function deselect() {
-    selectedId = null;
-    renderAll();
-  }
-
-  // ----------------------------
-  // DOM refs
-  // ----------------------------
+  // DOM
   const el = {
-    // topbar
     newProjectBtn: byId("newProjectBtn"),
     importFile: byId("importFile"),
     exportBtn: byId("exportBtn"),
 
-    // left panel
     addBoundaryBtn: byId("addBoundaryBtn"),
     addStreamingPresetBtn: byId("addStreamingPresetBtn"),
     boundaryList: byId("boundaryList"),
     globalMaps: byId("globalMaps"),
 
-    // editor header
     editorTitle: byId("editorTitle"),
     editorSubtitle: byId("editorSubtitle"),
     deleteBoundaryBtn: byId("deleteBoundaryBtn"),
     selectedKindPill: byId("selectedKindPill"),
     selectedEnabledToggle: byId("selectedEnabledToggle"),
 
-    // tabs
     editorTabs: byId("editorTabs"),
-
-    // empty state buttons
     emptyState: byId("emptyState"),
     emptyAddBoundaryBtn: byId("emptyAddBoundaryBtn"),
     emptyAddPresetBtn: byId("emptyAddPresetBtn"),
 
-    // sections
     tabGeneral: byId("tab-general"),
     tabSize: byId("tab-size"),
     tabHandler: byId("tab-handler"),
@@ -134,11 +106,12 @@
     bWidth: byId("bWidth"),
     bHeight: byId("bHeight"),
 
-    // handler fields
+    // handler fields (new)
     ahEnabled: byId("ahEnabled"),
-    ahSpawnMap: byId("ahSpawnMap"),
-    ahBoundaryListField: byId("ahBoundaryListField"),
-    ahBoundaries: byId("ahBoundaries"),
+    ahSpawnFields: byId("ahSpawnFields"),
+    ahUnspawnFields: byId("ahUnspawnFields"),
+    ahSpawnMaps: byId("ahSpawnMaps"),
+    ahBoundariesChecklist: byId("ahBoundariesChecklist"),
 
     // preloads
     addPreloadXYBtn: byId("addPreloadXYBtn"),
@@ -147,16 +120,20 @@
   };
 
   // ----------------------------
-  // Rendering
+  // Render
   // ----------------------------
+  function renderGlobalMaps() {
+    el.globalMaps.value = state.global.streamingMaps.join(",");
+  }
+
   function renderBoundaryList() {
     el.boundaryList.innerHTML = "";
 
     if (state.boundaries.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "help";
-      empty.textContent = "No boundaries yet. Add one or use presets.";
-      el.boundaryList.appendChild(empty);
+      const msg = document.createElement("div");
+      msg.className = "help";
+      msg.textContent = "No boundaries yet. Add one or use presets.";
+      el.boundaryList.appendChild(msg);
       return;
     }
 
@@ -171,11 +148,14 @@
       const badgeClass = b.kind === "spawn" ? "badge--spawn" : "badge--unspawn";
       const kindLabel = b.kind === "spawn" ? "Spawn" : "Unspawn";
       const enabledLabel = b.enabled ? "Enabled" : "Disabled";
+      const sizeMeta = b.size.mode === "streaming"
+        ? `Streaming (d=${b.size.distance ?? 0})`
+        : `Fixed (${b.size.width ?? "?"}×${b.size.height ?? "?"})`;
 
       li.innerHTML = `
         <div class="listItem__main">
           <div class="listItem__name">${escapeHtml(b.name || "(unnamed)")}</div>
-          <div class="listItem__meta">${enabledLabel} • ${b.size.mode === "streaming" ? `Streaming (d=${b.size.distance})` : `Fixed (${b.size.width}×${b.size.height})`}</div>
+          <div class="listItem__meta">${enabledLabel} • ${sizeMeta}</div>
         </div>
         <span class="badge ${badgeClass}">${kindLabel}</span>
       `;
@@ -183,16 +163,27 @@
     });
   }
 
+  function setTabVisibilityForKind(kind) {
+    // Hide Preloads tab button for unspawn boundaries
+    const preloadsBtn = el.editorTabs.querySelector('[data-tab="preloads"]');
+    if (preloadsBtn) {
+      preloadsBtn.style.display = (kind === "spawn") ? "" : "none";
+      // If we are on preloads tab and switch to unspawn, force to general
+      if (kind !== "spawn" && activeTab === "preloads") activeTab = "general";
+    }
+  }
+
   function renderEditorShell() {
     const b = getSelectedBoundary();
-
-    // enable/disable editor controls
     const has = !!b;
+
+    // Always keep this correct (fixes your "No boundary selected" lingering)
+    el.emptyState.hidden = has;
 
     el.deleteBoundaryBtn.disabled = !has;
     el.selectedEnabledToggle.disabled = !has;
 
-    // tabs enable/disable
+    // tabs enable/disable & active state
     [...el.editorTabs.querySelectorAll(".tab")].forEach(btn => {
       btn.disabled = !has;
       btn.classList.toggle("tab--active", has && btn.dataset.tab === activeTab);
@@ -204,7 +195,6 @@
       el.selectedKindPill.textContent = "—";
       el.selectedEnabledToggle.checked = false;
 
-      el.emptyState.hidden = false;
       el.tabGeneral.hidden = true;
       el.tabSize.hidden = true;
       el.tabHandler.hidden = true;
@@ -212,23 +202,67 @@
       return;
     }
 
+    setTabVisibilityForKind(b.kind);
+
     el.editorTitle.textContent = b.name || "(unnamed)";
     el.editorSubtitle.textContent = `${b.kind === "spawn" ? "Spawn boundary" : "Unspawn boundary"} • ID: ${b.id}`;
     el.selectedKindPill.textContent = b.kind === "spawn" ? "Spawn" : "Unspawn";
     el.selectedEnabledToggle.checked = !!b.enabled;
 
-    el.emptyState.hidden = true;
-
-    // show active tab section
     el.tabGeneral.hidden = activeTab !== "general";
     el.tabSize.hidden = activeTab !== "size";
     el.tabHandler.hidden = activeTab !== "handler";
     el.tabPreloads.hidden = activeTab !== "preloads";
   }
 
+  function renderHandlerChecklist(b) {
+    // Only for unspawn boundaries
+    el.ahBoundariesChecklist.innerHTML = "";
+
+    const spawnBoundaries = state.boundaries.filter(x => x.kind === "spawn");
+    if (spawnBoundaries.length === 0) {
+      const msg = document.createElement("div");
+      msg.className = "help";
+      msg.textContent = "No spawn boundaries exist yet. Add spawn boundaries first.";
+      el.ahBoundariesChecklist.appendChild(msg);
+      return;
+    }
+
+    const selected = new Set(b.autoHandler.boundaries || []);
+
+    spawnBoundaries.forEach(sb => {
+      const row = document.createElement("label");
+      row.className = "checkItem";
+
+      const checked = selected.has(sb.name);
+
+      row.innerHTML = `
+        <input type="checkbox" ${checked ? "checked" : ""} />
+        <div class="checkItem__text">
+          <div class="checkItem__name">${escapeHtml(sb.name)}</div>
+          <div class="checkItem__meta">${sb.enabled ? "Enabled" : "Disabled"}</div>
+        </div>
+      `;
+
+      const cb = row.querySelector("input");
+      cb.onchange = () => {
+        const set = new Set(b.autoHandler.boundaries || []);
+        if (cb.checked) set.add(sb.name);
+        else set.delete(sb.name);
+        b.autoHandler.boundaries = Array.from(set);
+        setStatus("Unspawn targets updated.", b.autoHandler.boundaries.join(", "));
+      };
+
+      el.ahBoundariesChecklist.appendChild(row);
+    });
+  }
+
   function renderEditorFields() {
     const b = getSelectedBoundary();
     if (!b) return;
+
+    // Ensure empty state stays hidden when selected
+    el.emptyState.hidden = true;
 
     // General
     el.bName.value = b.name ?? "";
@@ -238,7 +272,7 @@
     el.bUpdateMode.value = b.updateMode ?? "Movement";
     el.bWait.value = Number(b.wait ?? 0);
 
-    // Spawn-only fields show/hide by kind
+    // Spawn-only fields
     const spawnOnlyFields = [el.bType.closest(".field"), el.bMaxEvents.closest(".field")].filter(Boolean);
     spawnOnlyFields.forEach(f => (f.style.display = b.kind === "spawn" ? "" : "none"));
 
@@ -265,18 +299,25 @@
 
     // Auto Handler
     el.ahEnabled.checked = !!b.autoHandler?.enabled;
-    el.ahSpawnMap.value = Number(b.autoHandler?.spawnMap ?? 1);
-    el.ahBoundaryListField.style.display = b.kind === "unspawn" ? "" : "none";
-    el.ahBoundaries.value = (b.autoHandler?.boundaries || []).join(",");
 
-    // Preloads (spawn only)
+    // Spawn boundaries: show spawn map list
+    // Unspawn boundaries: hide spawn map list, show checklist
+    el.ahSpawnFields.style.display = (b.kind === "spawn") ? "" : "none";
+    el.ahUnspawnFields.style.display = (b.kind === "unspawn") ? "" : "none";
+
+    if (b.kind === "spawn") {
+      const maps = b.autoHandler?.spawnMaps || [1];
+      el.ahSpawnMaps.value = maps.join(",");
+    } else {
+      renderHandlerChecklist(b);
+    }
+
+    // Preloads section only for spawn boundaries (tab is hidden too)
     el.tabPreloads.querySelector(".card").style.display = b.kind === "spawn" ? "" : "none";
-
     renderPreloadList(b);
   }
 
   function renderPreloadList(b) {
-    // For now: just show count + simple list; we’ll build full cards next.
     el.preloadList.innerHTML = "";
     if (b.kind !== "spawn") return;
 
@@ -291,10 +332,12 @@
     b.preloads.forEach((p, idx) => {
       const card = document.createElement("div");
       card.className = "card";
+
       const title =
         p.mode === "xy"
           ? `XY: map ${p.mapId} @ (${p.x},${p.y})`
           : `Region: map ${p.mapId} regions [${(p.regions || []).join(",")}] × ${p.quantity || 1}`;
+
       card.innerHTML = `
         <div class="card__title">${escapeHtml(title)}</div>
         <div class="card__desc">spawnMap ${p.spawnMap} • eventId ${p.spawnEventId}</div>
@@ -302,35 +345,28 @@
           <button class="btn btn--danger btn--ghost" data-del="${idx}">Delete</button>
         </div>
       `;
+
       card.querySelector("[data-del]").onclick = () => {
         b.preloads.splice(idx, 1);
         renderAll();
         setStatus("Preload deleted.");
       };
+
       el.preloadList.appendChild(card);
     });
   }
 
-  function renderGlobalMaps() {
-    el.globalMaps.value = state.global.streamingMaps.join(",");
-  }
-
   function renderAll() {
+    // If nothing selected but boundaries exist, auto-select first
+    if (!selectedId && state.boundaries.length > 0) {
+      selectedId = state.boundaries[0].id;
+    }
+
     renderGlobalMaps();
     renderBoundaryList();
     renderEditorShell();
     renderEditorFields();
     setStatus("Ready.", `Boundaries: ${state.boundaries.length}`);
-  }
-
-  // Basic HTML escape for list rendering
-  function escapeHtml(str) {
-    return String(str)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
   }
 
   // ----------------------------
@@ -339,8 +375,11 @@
   function addBoundary(kind = "spawn") {
     const b = makeBoundaryBase(kind);
     state.boundaries.push(b);
+
+    // Always auto-select newly created boundary
     selectedId = b.id;
     activeTab = "general";
+
     renderAll();
     setStatus("Boundary added.", b.name);
   }
@@ -351,6 +390,8 @@
       setStatus("Preset data missing.", "presets.js not loaded");
       return;
     }
+
+    const startIndex = state.boundaries.length;
 
     // Spawn presets
     preset.spawn.forEach(p => {
@@ -364,7 +405,7 @@
       b.wait = p.wait;
       b.maxEvents = p.maxEvents ?? b.maxEvents;
       b.enabled = !!p.enabled;
-      // auto handler default enabled + spawnMap 1
+      b.autoHandler.spawnMaps = [1]; // default
       state.boundaries.push(b);
     });
 
@@ -378,17 +419,18 @@
       b.updateMode = p.updateMode;
       b.wait = p.wait;
       b.enabled = !!p.enabled;
-      b.autoHandler.enabled = true;
-      b.autoHandler.spawnMap = 1;
       b.autoHandler.boundaries = Array.isArray(p.boundaries) ? p.boundaries.slice() : [];
       state.boundaries.push(b);
     });
 
-    // auto-select first boundary
-    if (!selectedId && state.boundaries.length) selectedId = state.boundaries[0].id;
+    // Auto-select the first preset we just added
+    if (state.boundaries.length > startIndex) {
+      selectedId = state.boundaries[startIndex].id;
+      activeTab = "general";
+    }
 
     renderAll();
-    setStatus("Streaming presets added.", `+${preset.spawn.length + preset.unspawn.length}`);
+    setStatus("Streaming presets added.", `+${state.boundaries.length - startIndex}`);
   }
 
   function deleteSelectedBoundary() {
@@ -398,8 +440,8 @@
     const idx = state.boundaries.findIndex(x => x.id === b.id);
     if (idx >= 0) state.boundaries.splice(idx, 1);
 
-    // select next if available
     selectedId = state.boundaries[idx]?.id || state.boundaries[idx - 1]?.id || null;
+    activeTab = "general";
     renderAll();
     setStatus("Boundary deleted.");
   }
@@ -413,7 +455,6 @@
     setStatus("New project started.");
   }
 
-  // Export canonical file format
   function exportJson() {
     const payload = {
       meta: state.meta,
@@ -430,13 +471,11 @@
     setStatus("Exported JSON.", a.download);
   }
 
-  // Import: accepts our format; also tolerates raw array of boundaries
   async function importJsonFile(file) {
     const text = await file.text();
     const json = JSON.parse(text);
 
     if (Array.isArray(json)) {
-      // raw boundaries array
       state.boundaries = json;
       state.global.streamingMaps = [];
     } else {
@@ -445,16 +484,25 @@
       state.boundaries = json.boundaries || [];
     }
 
-    // Normalize required fields
+    // Normalize
     state.boundaries.forEach(b => {
       if (!b.id) b.id = uid();
       if (!b.size) b.size = { mode: "streaming", distance: 2, width: null, height: null };
-      if (!b.autoHandler) b.autoHandler = { enabled: true, spawnMap: 1, boundaries: [] };
+      if (!b.autoHandler) b.autoHandler = { enabled: true, spawnMaps: [1], boundaries: [] };
       if (!Array.isArray(b.maps)) b.maps = [];
       if (!Array.isArray(b.preloads)) b.preloads = [];
       if (b.kind !== "spawn" && b.kind !== "unspawn") b.kind = "spawn";
       if (!b.updateMode) b.updateMode = "Movement";
       if (typeof b.enabled !== "boolean") b.enabled = true;
+
+      // Back-compat if older import has spawnMap instead of spawnMaps
+      if (!Array.isArray(b.autoHandler.spawnMaps)) {
+        if (Number.isFinite(Number(b.autoHandler.spawnMap))) {
+          b.autoHandler.spawnMaps = [Number(b.autoHandler.spawnMap)];
+        } else {
+          b.autoHandler.spawnMaps = [1];
+        }
+      }
     });
 
     selectedId = state.boundaries[0]?.id || null;
@@ -479,7 +527,7 @@
         console.error(err);
         setStatus("Import failed.", err.message || String(err));
       } finally {
-        e.target.value = ""; // allow re-import same file
+        e.target.value = "";
       }
     };
 
@@ -497,7 +545,6 @@
 
     // editor header
     el.deleteBoundaryBtn.onclick = () => deleteSelectedBoundary();
-
     el.selectedEnabledToggle.onchange = (e) => {
       const b = getSelectedBoundary();
       if (!b) return;
@@ -528,7 +575,6 @@
     el.bMaps.oninput = (e) => {
       const b = getSelectedBoundary(); if (!b) return;
       b.maps = parseNumberList(e.target.value);
-      setStatus("Maps updated.", b.maps.join(","));
     };
     el.bThickness.oninput = (e) => {
       const b = getSelectedBoundary(); if (!b) return;
@@ -583,22 +629,21 @@
       const b = getSelectedBoundary(); if (!b) return;
       b.autoHandler.enabled = !!e.target.checked;
     };
-    el.ahSpawnMap.oninput = (e) => {
-      const b = getSelectedBoundary(); if (!b) return;
-      b.autoHandler.spawnMap = Number(e.target.value || 1);
-    };
-    el.ahBoundaries.oninput = (e) => {
-      const b = getSelectedBoundary(); if (!b) return;
-      b.autoHandler.boundaries = parseStringList(e.target.value);
+
+    // spawn maps list (spawn only)
+    el.ahSpawnMaps.oninput = (e) => {
+      const b = getSelectedBoundary();
+      if (!b || b.kind !== "spawn") return;
+      b.autoHandler.spawnMaps = parseNumberList(e.target.value);
     };
 
-    // preloads (basic add only; edit UI comes next)
+    // preloads add buttons
     el.addPreloadXYBtn.onclick = () => {
       const b = getSelectedBoundary();
       if (!b || b.kind !== "spawn") return;
       b.preloads.push({
         mode: "xy",
-        spawnMap: b.autoHandler?.spawnMap ?? 1,
+        spawnMap: (b.autoHandler.spawnMaps?.[0] ?? 1),
         spawnEventId: 1,
         mapId: (b.maps?.[0] ?? state.global.streamingMaps?.[0] ?? 1),
         x: 0,
@@ -613,7 +658,7 @@
       if (!b || b.kind !== "spawn") return;
       b.preloads.push({
         mode: "region",
-        spawnMap: b.autoHandler?.spawnMap ?? 1,
+        spawnMap: (b.autoHandler.spawnMaps?.[0] ?? 1),
         spawnEventId: 1,
         mapId: (b.maps?.[0] ?? state.global.streamingMaps?.[0] ?? 1),
         regions: [1],
@@ -624,9 +669,6 @@
     };
   }
 
-  // ----------------------------
-  // Init
-  // ----------------------------
   wireEvents();
   renderAll();
 })();
