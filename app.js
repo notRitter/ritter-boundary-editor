@@ -120,6 +120,82 @@
     preloadFilter: byId("preloadFilter")
   };
 
+  function setInvalid(inputEl, invalid, messageEl = null, message = "") {
+    if (!inputEl) return;
+    inputEl.classList.toggle("is-invalid", !!invalid);
+    if (messageEl) {
+      messageEl.classList.toggle("help--error", !!invalid);
+      if (message) messageEl.textContent = message;
+    }
+  }
+  
+  function anyStreamingBoundariesExist() {
+    return state.boundaries.some(b => b?.size?.mode === "streaming");
+  }
+  
+  // Mirrors global streaming maps into each streaming boundary.maps (non-destructive-ish)
+  // Rule: if boundary is streaming AND boundary.maps is empty, copy from global.
+  function mirrorGlobalMapsToStreamingBoundaries() {
+    const g = state.global.streamingMaps || [];
+    if (!Array.isArray(g) || g.length === 0) return;
+  
+    for (const b of state.boundaries) {
+      if (b?.size?.mode !== "streaming") continue;
+      if (!Array.isArray(b.maps) || b.maps.length === 0) {
+        b.maps = g.slice();
+      }
+    }
+  }
+  
+  // Returns {ok:boolean, errors:string[]}
+  function validateProject() {
+    const errors = [];
+  
+    if (!Array.isArray(state.boundaries) || state.boundaries.length === 0) {
+      errors.push("Add at least one boundary before exporting.");
+    }
+  
+    // If any streaming boundaries exist, global maps must not be empty
+    if (anyStreamingBoundariesExist()) {
+      if (!Array.isArray(state.global.streamingMaps) || state.global.streamingMaps.length === 0) {
+        errors.push("Global Streaming Maps is required when you have streaming boundaries.");
+      }
+    }
+  
+    // Basic boundary-level checks
+    const names = new Set();
+    for (const b of state.boundaries) {
+      if (!b.name || !b.name.trim()) errors.push("A boundary is missing a name.");
+      const key = (b.name || "").trim().toLowerCase();
+      if (key) {
+        if (names.has(key)) errors.push(`Duplicate boundary name: "${b.name}"`);
+        names.add(key);
+      }
+  
+      if (b.size?.mode === "fixed") {
+        if (!Number.isFinite(Number(b.size.width)) || Number(b.size.width) <= 0) errors.push(`Fixed width invalid for "${b.name}"`);
+        if (!Number.isFinite(Number(b.size.height)) || Number(b.size.height) <= 0) errors.push(`Fixed height invalid for "${b.name}"`);
+      } else if (b.size?.mode === "streaming") {
+        if (!Number.isFinite(Number(b.size.distance)) || Number(b.size.distance) < 0) errors.push(`Streaming distance invalid for "${b.name}"`);
+      }
+  
+      if (b.kind === "spawn") {
+        const spawnMaps = b.autoHandler?.spawnMaps || [];
+        if (b.autoHandler?.enabled && (!Array.isArray(spawnMaps) || spawnMaps.length === 0)) {
+          errors.push(`Spawn boundary "${b.name}" auto handler requires Spawn Map ID(s).`);
+        }
+      } else {
+        const targets = b.autoHandler?.boundaries || [];
+        if (b.autoHandler?.enabled && (!Array.isArray(targets) || targets.length === 0)) {
+          errors.push(`Unspawn boundary "${b.name}" should target at least one spawn boundary.`);
+        }
+      }
+    }
+  
+    return { ok: errors.length === 0, errors };
+  }
+
+  
   // ----------------------------
   // Render
   // ----------------------------
