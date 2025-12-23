@@ -1,64 +1,51 @@
-let state = {
-  version: 1,
-  boundaries: []
-};
+let boundaries = [];
 
-let selectedIndex = -1;
-
-const boundaryListEl = document.getElementById("boundaryList");
-const editorEl = document.getElementById("editorContent");
-
-function renderBoundaryList() {
-  boundaryListEl.innerHTML = "";
-
-  state.boundaries.forEach((b, i) => {
-    const li = document.createElement("li");
-    li.textContent = b.name || "(unnamed)";
-    li.onclick = () => selectBoundary(i);
-    if (i === selectedIndex) li.classList.add("active");
-    boundaryListEl.appendChild(li);
-  });
-}
-
-function selectBoundary(index) {
-  selectedIndex = index;
-  renderEditor();
-  renderBoundaryList();
-}
-
-function renderEditor() {
-  if (selectedIndex === -1) {
-    editorEl.textContent = "Select a boundary to edit";
-    return;
-  }
-
-  const b = state.boundaries[selectedIndex];
-
-  editorEl.innerHTML = `
-    <label>Name
-      <input value="${b.name}" id="b_name">
-    </label>
-
-    <label>Type
-      <select id="b_type">
-        <option value="spawn" ${b.type === "spawn" ? "selected" : ""}>Spawn</option>
-        <option value="unspawn" ${b.type === "unspawn" ? "selected" : ""}>Unspawn</option>
-      </select>
-    </label>
-  `;
-
-  document.getElementById("b_name").oninput = e => {
-    b.name = e.target.value;
-    renderBoundaryList();
-  };
-
-  document.getElementById("b_type").onchange = e => {
-    b.type = e.target.value;
-  };
-}
+const listEl = document.getElementById("boundaryList");
 
 document.getElementById("addBoundary").onclick = () => {
-  state.boundaries.push(Schema.boundaryTemplate());
-  renderBoundaryList();
+  boundaries.push(createEmptyBoundary());
+  render();
 };
 
+document.getElementById("exportJson").onclick = () => {
+  const blob = new Blob([JSON.stringify(boundaries, null, 2)], {
+    type: "application/json"
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "ritter-boundaries.json";
+  a.click();
+};
+
+document.getElementById("importJson").onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  file.text().then(text => {
+    boundaries = JSON.parse(text);
+    render();
+  });
+};
+
+function render() {
+  listEl.innerHTML = "";
+  boundaries.forEach((b, i) => {
+    const div = document.createElement("div");
+    div.className = "boundary";
+    div.innerHTML = `
+      <label>Name <input value="${b.name}" /></label><br/>
+      <label>Kind 
+        <select>
+          <option>spawn</option>
+          <option>unspawn</option>
+        </select>
+      </label><br/>
+      <label>Size Mode 
+        <select>
+          <option>streaming</option>
+          <option>fixed</option>
+        </select>
+      </label>
+    `;
+    listEl.appendChild(div);
+  });
+}
