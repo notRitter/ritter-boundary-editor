@@ -1,37 +1,10 @@
 body {
   font-family: sans-serif;
-  margin: 0;
-  background: #1e1e1e;
-  color: #ddd;
+  padding: 16px;
 }
 
-header, footer {
-  padding: 10px;
-  background: #2a2a2a;
+.boundary {
+  border: 1px solid #444;
+  padding: 12px;
+  margin-bottom: 12px;
 }
-
-#app {
-  display: flex;
-  height: calc(100vh - 120px);
-}
-
-#sidebar {
-  width: 250px;
-  padding: 10px;
-  background: #252525;
-}
-
-#boundaryList li {
-  cursor: pointer;
-  padding: 4px;
-}
-
-#boundaryList li.active {
-  background: #444;
-}
-
-#editor {
-  flex: 1;
-  padding: 10px;
-}
-
