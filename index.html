@@ -262,6 +262,13 @@
             <div class="card__title">Preloads (Spawn boundaries only)</div>
             <div class="card__desc">Create saved boundary events ahead of time. Exported JSON will include these.</div>
 
+            <div class="row row--wrap">
+              <button class="btn btn--primary" id="addPreloadXYBtn">+ Add XY Preload</button>
+              <button class="btn btn--ghost" id="addPreloadRegionBtn">+ Add Region Preload</button>
+            </div>
+
+            <div class="divider"></div>
+            
             <div class="grid2" style="margin-top:12px;">
               <div class="field">
                 <label class="label">Filter (text)</label>
@@ -282,11 +289,6 @@
                 <input class="input" id="preloadTagFilter" placeholder="e.g. dungeon1, fire, tutorial" />
                 <div class="help">Matches preloads where tag contains this text.</div>
               </div>
-            </div>
-            
-            <div class="row row--wrap">
-              <button class="btn btn--primary" id="addPreloadXYBtn">+ Add XY Preload</button>
-              <button class="btn btn--ghost" id="addPreloadRegionBtn">+ Add Region Preload</button>
             </div>
 
             <div class="divider"></div>
