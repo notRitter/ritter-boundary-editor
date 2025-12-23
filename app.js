@@ -317,29 +317,6 @@
       return;
     }
 
-    function renderPreloadMapFilterOptions(b) {
-      if (!el.preloadMapFilter) return;
-    
-      const current = el.preloadMapFilter.value || "";
-    
-      // Collect unique mapIds from preloads
-      const set = new Set();
-      (b.preloads || []).forEach(p => {
-        const mid = Number(p.mapId);
-        if (Number.isFinite(mid)) set.add(mid);
-      });
-      const mapIds = Array.from(set).sort((a, c) => a - c);
-    
-      // Rebuild options
-      el.preloadMapFilter.innerHTML = `<option value="">All maps</option>` +
-        mapIds.map(mid => `<option value="${mid}">${mid}</option>`).join("");
-    
-      // Restore selection if still present
-      const stillExists = mapIds.includes(Number(current));
-      el.preloadMapFilter.value = stillExists ? current : "";
-    }
-
-    
     const selected = new Set(b.autoHandler.boundaries || []);
 
     spawnBoundaries.forEach(sb => {
@@ -628,7 +605,27 @@
     });
   }
 
-
+  function renderPreloadMapFilterOptions(b) {
+      if (!el.preloadMapFilter) return;
+    
+      const current = el.preloadMapFilter.value || "";
+    
+      // Collect unique mapIds from preloads
+      const set = new Set();
+      (b.preloads || []).forEach(p => {
+        const mid = Number(p.mapId);
+        if (Number.isFinite(mid)) set.add(mid);
+      });
+      const mapIds = Array.from(set).sort((a, c) => a - c);
+    
+      // Rebuild options
+      el.preloadMapFilter.innerHTML = `<option value="">All maps</option>` +
+        mapIds.map(mid => `<option value="${mid}">${mid}</option>`).join("");
+    
+      // Restore selection if still present
+      const stillExists = mapIds.includes(Number(current));
+      el.preloadMapFilter.value = stillExists ? current : "";
+    }
 
   function renderAll() {
     // If nothing selected but boundaries exist, auto-select first
