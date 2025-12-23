@@ -56,13 +56,6 @@
               <div class="help">Used when a boundary is set to “Streaming”.</div>
             </div>
           </div>
-
-          <div class="field" style="margin-top:12px;">
-            <label class="label">Filter preloads</label>
-            <input class="input" id="preloadFilter" placeholder="e.g. map 33, event 12, region 5..." />
-            <div class="help">Filters by mapId, spawnMap, spawnEventId, XY coords, regions.</div>
-          </div>
-
           
           <div class="divider"></div>
 
@@ -269,6 +262,28 @@
             <div class="card__title">Preloads (Spawn boundaries only)</div>
             <div class="card__desc">Create saved boundary events ahead of time. Exported JSON will include these.</div>
 
+            <div class="grid2" style="margin-top:12px;">
+              <div class="field">
+                <label class="label">Filter (text)</label>
+                <input class="input" id="preloadFilter" placeholder="search anything… (eventId, coords, regions…)" />
+                <div class="help">Searches across preload fields.</div>
+              </div>
+            
+              <div class="field">
+                <label class="label">Filter by Map ID</label>
+                <select class="select" id="preloadMapFilter">
+                  <option value="">All maps</option>
+                </select>
+                <div class="help">Shows only preloads for that map.</div>
+              </div>
+            
+              <div class="field">
+                <label class="label">Filter by Tag</label>
+                <input class="input" id="preloadTagFilter" placeholder="e.g. dungeon1, fire, tutorial" />
+                <div class="help">Matches preloads where tag contains this text.</div>
+              </div>
+            </div>
+            
             <div class="row row--wrap">
               <button class="btn btn--primary" id="addPreloadXYBtn">+ Add XY Preload</button>
               <button class="btn btn--ghost" id="addPreloadRegionBtn">+ Add Region Preload</button>
