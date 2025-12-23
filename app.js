@@ -33,28 +33,23 @@
   }
 
   function makeBoundaryBase(kind = "spawn") {
-    return {
-      id: uid(),
-      name: kind === "spawn" ? "New Spawn Boundary" : "New Unspawn Boundary",
-      kind,
-      maps: [],
-      size: { mode: "streaming", distance: 2, width: null, height: null },
-      thickness: 1,
-      type: "FillOn",
-      updateMode: "Movement",
-      wait: 10,
-      maxEvents: 400,
-      enabled: true,
-      autoHandler: {
-        enabled: true,
-        // spawn boundaries use spawnMaps array
-        spawnMaps: [1],
-        // unspawn boundaries use boundaries list
-        boundaries: []
-      },
-      preloads: []
-    };
-  }
+  return {
+    id: uid(),
+    name: kind === "spawn" ? "New Spawn Boundary" : "New Unspawn Boundary",
+    kind,
+    maps: [],
+    size: { mode: "streaming", distance: 2, width: null, height: null },
+    thickness: 1,
+    type: "FillOn",
+    updateMode: "Movement",
+    wait: 10,
+    maxEvents: 400,
+    enabled: true,
+    autoHandler: { enabled: true, spawnMaps: [1], boundaries: [] },
+    preloads: [],
+    ui: { openPreload: null }
+  };
+}
 
   function getSelectedBoundary() {
     return state.boundaries.find(b => b.id === selectedId) || null;
@@ -498,47 +493,62 @@
           ? `XY Preload • #${idx + 1}`
           : `Region Preload • #${idx + 1}`;
   
+      const isOpen = (b.ui?.openPreload === idx);
+
       card.innerHTML = `
-        <div class="card__title">${escapeHtml(title)}</div>
-        <div class="card__desc">Edit fields below. These export into JSON as preload objects.</div>
-  
-        <div class="grid2" style="margin-top:12px;">
-          <div class="field">
-            <label class="label">Tag (optional)</label>
-            <input class="input" data-k="tag" value="${escapeHtml(p.tag || "")}" placeholder="e.g. dungeon1" />
-            <div class="help">Used for filtering + organization.</div>
+        <div class="preloadHeader" data-toggle>
+          <div class="preloadHeader__left">
+            <div class="preloadHeader__title">${escapeHtml(title)}</div>
+            <div class="preloadHeader__meta">
+              Map ${escapeHtml(p.mapId ?? "")} • SpawnMap ${escapeHtml(p.spawnMap ?? "")} • Event ${escapeHtml(p.spawnEventId ?? "")}
+              ${p.mode === "xy" ? ` • (${p.x ?? 0},${p.y ?? 0})` : ` • Regions: ${(p.regions||[]).join(",")} • Qty: ${p.quantity ?? 1}`}
+              ${p.tag ? ` • Tag: ${escapeHtml(p.tag)}` : ``}
+            </div>
           </div>
-  
-          <div class="field">
-            <label class="label">Game Map ID</label>
-            <input class="input" data-k="mapId" type="number" min="1" step="1" value="${Number(p.mapId || 1)}" />
-            <div class="help">Where the saved boundary event exists.</div>
-          </div>
-  
-          <div class="field">
-            <label class="label">Spawn Map ID</label>
-            <input class="input" data-k="spawnMap" type="number" min="1" step="1" value="${Number(p.spawnMap || 1)}" />
-            <div class="help">Template map holding the event.</div>
-          </div>
-  
-          <div class="field">
-            <label class="label">Spawn Event ID</label>
-            <input class="input" data-k="spawnEventId" type="number" min="1" step="1" value="${Number(p.spawnEventId || 1)}" />
-            <div class="help">Template event id on spawn map.</div>
+          <div class="preloadHeader__right">
+            <button class="btn btn--ghost btn--sm" type="button" data-toggleBtn>
+              ${isOpen ? "Collapse" : "Expand"}
+            </button>
           </div>
         </div>
-  
-        <div class="divider"></div>
-  
-        <div class="grid2" id="preloadModeFields"></div>
-  
-        <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn--ghost" data-up>↑ Up</button>
-          <button class="btn btn--ghost" data-down>↓ Down</button>
-          <button class="btn btn--ghost" data-dup>Duplicate</button>
-          <button class="btn btn--danger btn--ghost" data-del>Delete</button>
+      
+        <div class="preloadBody" style="display:${isOpen ? "block" : "none"};">
+          <div class="card__desc">Edit fields below. These export into JSON as preload objects.</div>
+      
+          <div class="grid2" style="margin-top:12px;">
+            ... your existing inputs ...
+          </div>
+      
+          <div class="divider"></div>
+      
+          <div class="grid2" id="preloadModeFields"></div>
+      
+          <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn--ghost" data-up>↑ Up</button>
+            <button class="btn btn--ghost" data-down>↓ Down</button>
+            <button class="btn btn--ghost" data-dup>Duplicate</button>
+            <button class="btn btn--danger btn--ghost" data-del>Delete</button>
+          </div>
         </div>
       `;
+
+      const toggle = () => {
+        if (!b.ui) b.ui = { openPreload: null };
+        b.ui.openPreload = (b.ui.openPreload === idx) ? null : idx;
+        renderAll();
+      };
+      
+      card.querySelector("[data-toggleBtn]")?.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        toggle();
+      });
+      
+      card.querySelector("[data-toggle]")?.addEventListener("click", (ev) => {
+        // don’t toggle when clicking inside inputs later (only header)
+        toggle();
+      });
+
   
       // Render mode-specific fields
       const modeHost = card.querySelector("#preloadModeFields");
@@ -816,6 +826,9 @@
       if (b.kind !== "spawn" && b.kind !== "unspawn") b.kind = "spawn";
       if (!b.updateMode) b.updateMode = "Movement";
       if (typeof b.enabled !== "boolean") b.enabled = true;
+      if (!b.ui) b.ui = { openPreload: null };
+      if (typeof b.ui.openPreload !== "number") b.ui.openPreload = null;
+
 
       // Back-compat if older import has spawnMap instead of spawnMaps
       if (!Array.isArray(b.autoHandler.spawnMaps)) {
@@ -982,7 +995,12 @@
         y: 0,
         tag: ""
       });
-    
+
+      b.ui.openPreload = b.preloads.length - 1;
+      activeTab = "preloads";
+      renderAll();
+
+      
       activeTab = "preloads";
       renderAll();
       setStatus("XY preload added.");
@@ -1002,7 +1020,11 @@
         quantity: 10,
         tag: ""
       });
-    
+
+      b.ui.openPreload = b.preloads.length - 1;
+      activeTab = "preloads";
+      renderAll();
+      
       activeTab = "preloads";
       renderAll();
       setStatus("Region preload added.");
