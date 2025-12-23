@@ -199,6 +199,27 @@
     return { ok: errors.length === 0, errors };
   }
 
+  function renderPreloadMapFilterOptions(b) {
+    if (!el.preloadMapFilter) return;
+  
+    const current = el.preloadMapFilter.value || "";
+  
+    const set = new Set();
+    (b.preloads || []).forEach(p => {
+      const mid = Number(p.mapId);
+      if (Number.isFinite(mid)) set.add(mid);
+    });
+  
+    const mapIds = Array.from(set).sort((a, c) => a - c);
+  
+    el.preloadMapFilter.innerHTML =
+      `<option value="">All maps</option>` +
+      mapIds.map(mid => `<option value="${mid}">${mid}</option>`).join("");
+  
+    const stillExists = mapIds.includes(Number(current));
+    el.preloadMapFilter.value = stillExists ? current : "";
+  }
+
   
   // ----------------------------
   // Render
@@ -515,9 +536,35 @@
         <div class="preloadBody" style="display:${isOpen ? "block" : "none"};">
           <div class="card__desc">Edit fields below. These export into JSON as preload objects.</div>
       
-          <div class="grid2" style="margin-top:12px;">
-            ... your existing inputs ...
-          </div>
+          const bodyHost = card.querySelector(".preloadBody");
+          const gridHost = bodyHost.querySelector(".grid2");
+          
+          gridHost.innerHTML = `
+            <div class="field">
+              <label class="label">Tag (optional)</label>
+              <input class="input" data-k="tag" value="${escapeHtml(p.tag || "")}" placeholder="e.g. dungeon1" />
+              <div class="help">Used for filtering + organization.</div>
+            </div>
+          
+            <div class="field">
+              <label class="label">Game Map ID</label>
+              <input class="input" data-k="mapId" type="number" min="1" step="1" value="${Number(p.mapId || 1)}" />
+              <div class="help">Where the saved boundary event exists.</div>
+            </div>
+          
+            <div class="field">
+              <label class="label">Spawn Map ID</label>
+              <input class="input" data-k="spawnMap" type="number" min="1" step="1" value="${Number(p.spawnMap || 1)}" />
+              <div class="help">Template map holding the event.</div>
+            </div>
+          
+            <div class="field">
+              <label class="label">Spawn Event ID</label>
+              <input class="input" data-k="spawnEventId" type="number" min="1" step="1" value="${Number(p.spawnEventId || 1)}" />
+              <div class="help">Template event id on spawn map.</div>
+            </div>
+          `;
+
       
           <div class="divider"></div>
       
@@ -545,9 +592,11 @@
       });
       
       card.querySelector("[data-toggle]")?.addEventListener("click", (ev) => {
-        // don’t toggle when clicking inside inputs later (only header)
+        const isInteractive = ev.target.closest("button, input, select, textarea, a, label");
+        if (isInteractive) return;
         toggle();
       });
+
 
   
       // Render mode-specific fields
@@ -605,6 +654,8 @@
   
       // Buttons
       card.querySelector("[data-del]").onclick = () => {
+        b.ui = b.ui || { openPreload: null };
+
         const open = (typeof b.ui?.openPreload === "number") ? b.ui.openPreload : null;
 
         b.preloads.splice(idx, 1);
@@ -617,6 +668,7 @@
       };
   
       card.querySelector("[data-dup]").onclick = () => {
+        b.ui = b.ui || { openPreload: null };
         const copy = JSON.parse(JSON.stringify(p));
         b.preloads.splice(idx + 1, 0, copy);
         
@@ -630,6 +682,7 @@
   
       card.querySelector("[data-up]").onclick = () => {
         if (idx <= 0) return;
+        b.ui = b.ui || { openPreload: null };
 
         const open = (typeof b.ui?.openPreload === "number") ? b.ui.openPreload : null;
         
@@ -650,6 +703,8 @@
       card.querySelector("[data-down]").onclick = () => {
         if (idx >= b.preloads.length - 1) return;
 
+        b.ui = b.ui || { openPreload: null };
+
         const open = (typeof b.ui?.openPreload === "number") ? b.ui.openPreload : null;
         
         // swap preloads
@@ -669,28 +724,6 @@
       el.preloadList.appendChild(card);
     });
   }
-
-  function renderPreloadMapFilterOptions(b) {
-      if (!el.preloadMapFilter) return;
-    
-      const current = el.preloadMapFilter.value || "";
-    
-      // Collect unique mapIds from preloads
-      const set = new Set();
-      (b.preloads || []).forEach(p => {
-        const mid = Number(p.mapId);
-        if (Number.isFinite(mid)) set.add(mid);
-      });
-      const mapIds = Array.from(set).sort((a, c) => a - c);
-    
-      // Rebuild options
-      el.preloadMapFilter.innerHTML = `<option value="">All maps</option>` +
-        mapIds.map(mid => `<option value="${mid}">${mid}</option>`).join("");
-    
-      // Restore selection if still present
-      const stillExists = mapIds.includes(Number(current));
-      el.preloadMapFilter.value = stillExists ? current : "";
-    }
 
   function renderAll() {
     // If nothing selected but boundaries exist, auto-select first
