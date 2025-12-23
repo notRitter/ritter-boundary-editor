@@ -407,3 +407,10 @@ h1{ margin:0; }
 .help--error{
   color: rgba(255, 120, 120, .95);
 }
+
+.topGlobal {
+  margin-top: 12px;
+}
+.topGlobal .card {
+  padding: 14px;
+}
