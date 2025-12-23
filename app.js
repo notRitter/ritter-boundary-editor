@@ -400,41 +400,89 @@
   function renderPreloadList(b) {
     el.preloadList.innerHTML = "";
     if (b.kind !== "spawn") return;
-
-    if (!Array.isArray(b.preloads) || b.preloads.length === 0) {
+  
+    const filter = String(el.preloadFilter?.value || "").trim().toLowerCase();
+  
+    const preloads = Array.isArray(b.preloads) ? b.preloads : [];
+    const filtered = preloads
+      .map((p, idx) => ({ p, idx }))
+      .filter(({ p, idx }) => {
+        if (!filter) return true;
+        const hay = [
+          p.mode,
+          p.mapId, p.spawnMap, p.spawnEventId,
+          p.x, p.y,
+          Array.isArray(p.regions) ? p.regions.join(",") : "",
+          p.quantity,
+          idx
+        ].join(" ").toLowerCase();
+        return hay.includes(filter);
+      });
+  
+    if (preloads.length === 0) {
       const msg = document.createElement("div");
       msg.className = "help";
       msg.textContent = "No preloads yet. Add XY or Region preloads.";
       el.preloadList.appendChild(msg);
       return;
     }
-
-    b.preloads.forEach((p, idx) => {
+  
+    if (filtered.length === 0) {
+      const msg = document.createElement("div");
+      msg.className = "help";
+      msg.textContent = "No preloads match your filter.";
+      el.preloadList.appendChild(msg);
+      return;
+    }
+  
+    filtered.forEach(({ p, idx }) => {
       const card = document.createElement("div");
       card.className = "card";
-
+  
       const title =
         p.mode === "xy"
           ? `XY: map ${p.mapId} @ (${p.x},${p.y})`
           : `Region: map ${p.mapId} regions [${(p.regions || []).join(",")}] × ${p.quantity || 1}`;
-
+  
       card.innerHTML = `
         <div class="card__title">${escapeHtml(title)}</div>
-        <div class="card__desc">spawnMap ${p.spawnMap} • eventId ${p.spawnEventId}</div>
-        <div class="row" style="margin-top:10px;">
+        <div class="card__desc">spawnMap ${p.spawnMap} • eventId ${p.spawnEventId} • #${idx + 1}</div>
+  
+        <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn--ghost" data-up="${idx}">↑ Up</button>
+          <button class="btn btn--ghost" data-down="${idx}">↓ Down</button>
           <button class="btn btn--danger btn--ghost" data-del="${idx}">Delete</button>
         </div>
       `;
-
-      card.querySelector("[data-del]").onclick = () => {
+  
+      card.querySelector(`[data-del="${idx}"]`).onclick = () => {
         b.preloads.splice(idx, 1);
         renderAll();
         setStatus("Preload deleted.");
       };
-
+  
+      card.querySelector(`[data-up="${idx}"]`).onclick = () => {
+        if (idx <= 0) return;
+        const tmp = b.preloads[idx - 1];
+        b.preloads[idx - 1] = b.preloads[idx];
+        b.preloads[idx] = tmp;
+        renderAll();
+        setStatus("Preload moved up.");
+      };
+  
+      card.querySelector(`[data-down="${idx}"]`).onclick = () => {
+        if (idx >= b.preloads.length - 1) return;
+        const tmp = b.preloads[idx + 1];
+        b.preloads[idx + 1] = b.preloads[idx];
+        b.preloads[idx] = tmp;
+        renderAll();
+        setStatus("Preload moved down.");
+      };
+  
       el.preloadList.appendChild(card);
     });
   }
+
 
   function renderAll() {
     // If nothing selected but boundaries exist, auto-select first
@@ -446,7 +494,22 @@
     renderBoundaryList();
     renderEditorShell();
     renderEditorFields();
-    setStatus("Ready.", `Boundaries: ${state.boundaries.length}`);
+
+    // Validation + export enable/disable
+    const v = validateProject();
+    el.exportBtn.disabled = !v.ok;
+    
+    // highlight global maps when required
+    const needsGlobalMaps = anyStreamingBoundariesExist();
+    const globalEmpty = !state.global.streamingMaps || state.global.streamingMaps.length === 0;
+    setInvalid(el.globalMaps, needsGlobalMaps && globalEmpty);
+    
+    // status message
+    if (!v.ok) {
+      setStatus("Fix issues before export.", v.errors[0] || "");
+    } else {
+      setStatus("Ready.", `Boundaries: ${state.boundaries.length}`);
+    }
   }
 
   // ----------------------------
@@ -536,12 +599,23 @@
   }
 
   function exportJson() {
+    // Mirror global maps into streaming boundaries for completeness
+    mirrorGlobalMapsToStreamingBoundaries();
+  
+    const v = validateProject();
+    renderAll(); // refresh UI highlights + export enabled state
+  
+    if (!v.ok) {
+      alert("Cannot export yet:\n\n- " + v.errors.join("\n- "));
+      return;
+    }
+  
     const payload = {
       meta: state.meta,
       global: state.global,
       boundaries: state.boundaries
     };
-
+  
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -550,6 +624,7 @@
     URL.revokeObjectURL(a.href);
     setStatus("Exported JSON.", a.download);
   }
+
 
   async function importJsonFile(file) {
     const text = await file.text();
@@ -598,6 +673,12 @@
     // topbar
     el.newProjectBtn.onclick = () => newProject();
     el.exportBtn.onclick = () => exportJson();
+    if (el.preloadFilter) {
+      el.preloadFilter.oninput = () => {
+        renderAll();
+      };
+    }
+
     el.importFile.onchange = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -616,6 +697,9 @@
     el.addStreamingPresetBtn.onclick = () => addStreamingPresets();
     el.globalMaps.oninput = (e) => {
       state.global.streamingMaps = parseNumberList(e.target.value);
+      mirrorGlobalMapsToStreamingBoundaries();
+      renderAll();
+
       setStatus("Global streaming maps updated.", state.global.streamingMaps.join(","));
     };
 
