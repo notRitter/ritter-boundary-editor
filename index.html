@@ -1,1 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ritter Boundary Editor</title>
+  <link rel="stylesheet" href="src/style.css" />
+</head>
+<body>
+
+  <header>
+    <h1>Ritter Boundary Editor</h1>
+    <p>Create boundaries & preload data for RPG Maker MV/MZ</p>
+  </header>
+
+  <main id="app">
+    <aside id="sidebar">
+      <button id="addBoundary">+ Add Boundary</button>
+      <ul id="boundaryList"></ul>
+    </aside>
+
+    <section id="editor">
+      <div id="editorContent">
+        Select a boundary to edit
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <button id="importBtn">Import JSON</button>
+    <button id="exportBtn">Export JSON</button>
+    <input type="file" id="fileInput" hidden />
+  </footer>
+
+  <script src="src/schema.js"></script>
+  <script src="src/app.js"></script>
+</body>
+</html>
 
