@@ -116,7 +116,8 @@
     // preloads
     addPreloadXYBtn: byId("addPreloadXYBtn"),
     addPreloadRegionBtn: byId("addPreloadRegionBtn"),
-    preloadList: byId("preloadList")
+    preloadList: byId("preloadList"),
+    preloadFilter: byId("preloadFilter")
   };
 
   // ----------------------------
