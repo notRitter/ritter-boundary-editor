@@ -177,8 +177,11 @@
     const b = getSelectedBoundary();
     const has = !!b;
 
-    // Always keep this correct (fixes your "No boundary selected" lingering)
-    el.emptyState.hidden = has;
+    if (el.emptyState) {
+      el.emptyState.hidden = has;
+      el.emptyState.style.display = has ? "none" : "";
+    }
+
 
     el.deleteBoundaryBtn.disabled = !has;
     el.selectedEnabledToggle.disabled = !has;
