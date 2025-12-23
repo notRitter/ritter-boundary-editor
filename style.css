@@ -414,3 +414,23 @@ h1{ margin:0; }
 .topGlobal .card {
   padding: 14px;
 }
+
+.panelHeaderTop{
+  display:flex;
+  gap:16px;
+  align-items:flex-start;
+}
+
+.panelHeaderTop__left{
+  flex:1;
+  min-width:520px;
+}
+
+.panelHeaderTop__right{
+  width:min(420px, 38vw);
+}
+
+.card--compact{
+  padding:14px;
+}
+
