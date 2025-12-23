@@ -406,6 +406,30 @@
     renderPreloadList(b);
   }
 
+  function renderPreloadMapFilterOptions(b) {
+    if (!el.preloadMapFilter) return;
+  
+    const current = el.preloadMapFilter.value || "";
+  
+    // Collect unique mapIds from preloads
+    const set = new Set();
+    (b.preloads || []).forEach(p => {
+      const mid = Number(p.mapId);
+      if (Number.isFinite(mid)) set.add(mid);
+    });
+    const mapIds = Array.from(set).sort((a, c) => a - c);
+  
+    // Rebuild dropdown
+    el.preloadMapFilter.innerHTML =
+      `<option value="">All maps</option>` +
+      mapIds.map(mid => `<option value="${mid}">${mid}</option>`).join("");
+  
+    // Restore selection if still valid
+    const stillExists = mapIds.includes(Number(current));
+    el.preloadMapFilter.value = stillExists ? current : "";
+  }
+
+  
   function renderPreloadList(b) {
     el.preloadList.innerHTML = "";
     if (b.kind !== "spawn") return;
@@ -948,46 +972,42 @@
     el.addPreloadXYBtn.onclick = () => {
       const b = getSelectedBoundary();
       if (!b || b.kind !== "spawn") return;
-      // XY preload add
-  b.preloads.push({
-    mode: "xy",
-    spawnMap: (b.autoHandler.spawnMaps?.[0] ?? 1),
-    spawnEventId: 1,
-    mapId: (b.maps?.[0] ?? state.global.streamingMaps?.[0] ?? 1),
-    x: 0,
-    y: 0,
-    tag: ""
-  });
-  
-  // Region preload add
-  b.preloads.push({
-    mode: "region",
-    spawnMap: (b.autoHandler.spawnMaps?.[0] ?? 1),
-    spawnEventId: 1,
-    mapId: (b.maps?.[0] ?? state.global.streamingMaps?.[0] ?? 1),
-    regions: [1],
-    quantity: 10,
-    tag: ""
-  });
-
+    
+      b.preloads.push({
+        mode: "xy",
+        spawnMap: (b.autoHandler.spawnMaps?.[0] ?? 1),
+        spawnEventId: 1,
+        mapId: (b.maps?.[0] ?? state.global.streamingMaps?.[0] ?? 1),
+        x: 0,
+        y: 0,
+        tag: ""
+      });
+    
+      activeTab = "preloads";
       renderAll();
       setStatus("XY preload added.");
     };
 
+
     el.addPreloadRegionBtn.onclick = () => {
       const b = getSelectedBoundary();
       if (!b || b.kind !== "spawn") return;
+    
       b.preloads.push({
         mode: "region",
         spawnMap: (b.autoHandler.spawnMaps?.[0] ?? 1),
         spawnEventId: 1,
         mapId: (b.maps?.[0] ?? state.global.streamingMaps?.[0] ?? 1),
         regions: [1],
-        quantity: 10
+        quantity: 10,
+        tag: ""
       });
+    
+      activeTab = "preloads";
       renderAll();
       setStatus("Region preload added.");
     };
+
   }
 
   wireEvents();
